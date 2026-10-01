@@ -1,12 +1,16 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
-import { getHealth, sendChat, type ChatMessage, type HealthResponse } from "@/lib/api";
+import { getHealth, getProfile, sendChat, type ChatMessage, type HealthResponse } from "@/lib/api";
 
 type Status = { kind: "loading" } | { kind: "ok"; health: HealthResponse } | { kind: "down" };
 
 export default function CoachChat() {
+  const router = useRouter();
   const [status, setStatus] = useState<Status>({ kind: "loading" });
+  const [nickname, setNickname] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -16,7 +20,13 @@ export default function CoachChat() {
     getHealth()
       .then((health) => setStatus({ kind: "ok", health }))
       .catch(() => setStatus({ kind: "down" }));
-  }, []);
+    getProfile()
+      .then((profile) => {
+        if (profile) setNickname(profile.nickname);
+        else router.replace("/onboarding");
+      })
+      .catch(() => {}); // backend down: the status badge already says so
+  }, [router]);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -40,11 +50,19 @@ export default function CoachChat() {
 
   return (
     <section className="flex w-full flex-col gap-4">
-      <StatusBadge status={status} />
+      <div className="flex items-center justify-between gap-4">
+        <StatusBadge status={status} />
+        {nickname && (
+          <Link href="/onboarding" className="text-xs font-medium text-teal-700 hover:underline dark:text-teal-400">
+            Editar perfil
+          </Link>
+        )}
+      </div>
 
       <div className="flex min-h-64 flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
         {messages.length === 0 && (
           <p className="text-sm text-zinc-500">
+            {nickname && `Hola, ${nickname} 👋 `}
             Prueba: “Arma una rutina de 3 días, juego fútbol los sábados y tengo mancuernas”.
           </p>
         )}
