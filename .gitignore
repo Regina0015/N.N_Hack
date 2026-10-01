@@ -8,6 +8,10 @@
 .venv/
 __pycache__/
 *.pyc
+.pytest_cache/
+
+# Local SQLite database
+backend/data/
 
 # Node / Next.js (frontend/.gitignore covers the rest)
 node_modules/
