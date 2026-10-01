@@ -1,10 +1,12 @@
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.config import settings
+from app.deps import get_current_profile
 from app.nebius import coach_reply
+from app.schemas import ProfileData
 
 router = APIRouter(prefix="/api/coach", tags=["coach"])
 
@@ -24,9 +26,12 @@ class ChatResponse(BaseModel):
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest) -> ChatResponse:
+async def chat(
+    request: ChatRequest,
+    profile: ProfileData | None = Depends(get_current_profile),
+) -> ChatResponse:
     try:
-        reply = await coach_reply([m.model_dump() for m in request.messages])
+        reply = await coach_reply([m.model_dump() for m in request.messages], profile)
     except Exception as exc:  # surface provider errors without leaking secrets
         raise HTTPException(status_code=502, detail=f"Model provider error: {type(exc).__name__}") from exc
     return ChatResponse(reply=reply, mock=settings.mock_mode)
