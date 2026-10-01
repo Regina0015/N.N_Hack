@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, String, create_engine, text
+from sqlalchemy import JSON, DateTime, String, create_engine, inspect
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
@@ -44,13 +44,17 @@ SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
 
 def init_db() -> None:
-    Base.metadata.create_all(engine)
-    if engine.dialect.name == "postgresql":
-        # Supabase exposes the public schema through its Data API; RLS with no policies closes that door.
-        # The backend connects as the table owner, so its own queries are unaffected.
-        with engine.begin() as conn:
-            for table in Base.metadata.sorted_tables:
-                conn.execute(text(f'ALTER TABLE "{table.name}" ENABLE ROW LEVEL SECURITY'))
+    """Creates tables for local SQLite; on Supabase the schema belongs to backend/supabase/migrations."""
+    if engine.dialect.name == "sqlite":
+        Base.metadata.create_all(engine)
+        return
+    existing = inspect(engine)
+    missing = [t.name for t in Base.metadata.sorted_tables if not existing.has_table(t.name)]
+    if missing:
+        raise RuntimeError(
+            f"Missing tables {missing}: apply backend/supabase/migrations "
+            "(push to main with the Supabase GitHub integration, or `npx supabase db push`)."
+        )
 
 
 def get_session() -> Iterator[Session]:
