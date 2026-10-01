@@ -37,6 +37,21 @@ uv run uvicorn app.main:app --reload --port 8000
 
 Without a key, the backend runs in **mock mode** and returns placeholder replies.
 
+**Database**
+
+- Default: a local SQLite file (`backend/data/dev.db`), created automatically.
+- Supabase: set `DATABASE_URL` in `backend/.env` to the **Session pooler** URI (IPv4-compatible).
+  The schema lives in `backend/supabase/migrations` and is applied by the Supabase GitHub integration
+  (working directory `backend`) on push to `main`, or manually:
+
+  ```bash
+  cd backend
+  npx supabase link --project-ref <project-ref>
+  npx supabase db push
+  ```
+
+- Every table has Row Level Security enabled, so the public Data API cannot read it.
+
 **Frontend**
 
 ```bash
