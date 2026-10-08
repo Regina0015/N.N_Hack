@@ -1,26 +1,131 @@
 @import "tailwindcss";
 
+/* Nido design tokens (Claude Design project "Nido App"). Teal = action, coral = food & energy, lavender = sleep & cycle. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --canvas: #eae5de;
+  --bg: #f8f4ef;
+  --card: #ffffff;
+  --card2: #f1ece5;
+  --ink: #1d2928;
+  --mute: #56625f;
+  --line: rgba(29, 41, 40, 0.1);
+  --line2: rgba(29, 41, 40, 0.22);
+  --teal: oklch(0.5 0.085 190);
+  --teal-ink: oklch(0.44 0.08 190);
+  --on-teal: #fff;
+  --teal-soft: oklch(0.93 0.035 185);
+  --coral: oklch(0.7 0.14 35);
+  --coral-ink: oklch(0.5 0.15 35);
+  --coral-soft: oklch(0.94 0.035 40);
+  --lav: oklch(0.62 0.12 295);
+  --lav-ink: oklch(0.46 0.13 295);
+  --lav-soft: oklch(0.94 0.03 295);
+  --shadow: 0 1px 2px rgba(29, 41, 40, 0.05), 0 8px 24px rgba(29, 41, 40, 0.06);
+  color-scheme: light;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Dark follows the system unless the user picked a theme in Perfil (data-theme on <html>).
+   The two dark blocks below must stay identical. */
+:root[data-theme="dark"] {
+  --canvas: #0b100f;
+  --bg: #121918;
+  --card: #1a2423;
+  --card2: #233130;
+  --ink: #ecf1ef;
+  --mute: #a9b5b2;
+  --line: rgba(236, 241, 239, 0.09);
+  --line2: rgba(236, 241, 239, 0.24);
+  --teal: oklch(0.75 0.1 188);
+  --teal-ink: oklch(0.82 0.09 188);
+  --on-teal: #0d1716;
+  --teal-soft: oklch(0.31 0.045 190);
+  --coral: oklch(0.74 0.13 38);
+  --coral-ink: oklch(0.82 0.1 40);
+  --coral-soft: oklch(0.32 0.05 35);
+  --lav: oklch(0.74 0.1 295);
+  --lav-ink: oklch(0.84 0.08 295);
+  --lav-soft: oklch(0.31 0.05 295);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  color-scheme: dark;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not([data-theme="light"]) {
+    --canvas: #0b100f;
+    --bg: #121918;
+    --card: #1a2423;
+    --card2: #233130;
+    --ink: #ecf1ef;
+    --mute: #a9b5b2;
+    --line: rgba(236, 241, 239, 0.09);
+    --line2: rgba(236, 241, 239, 0.24);
+    --teal: oklch(0.75 0.1 188);
+    --teal-ink: oklch(0.82 0.09 188);
+    --on-teal: #0d1716;
+    --teal-soft: oklch(0.31 0.045 190);
+    --coral: oklch(0.74 0.13 38);
+    --coral-ink: oklch(0.82 0.1 40);
+    --coral-soft: oklch(0.32 0.05 35);
+    --lav: oklch(0.74 0.1 295);
+    --lav-ink: oklch(0.84 0.08 295);
+    --lav-soft: oklch(0.31 0.05 295);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    color-scheme: dark;
   }
 }
 
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-card2: var(--card2);
+  --color-ink: var(--ink);
+  --color-mute: var(--mute);
+  --color-line: var(--line);
+  --color-line2: var(--line2);
+  --color-teal: var(--teal);
+  --color-teal-ink: var(--teal-ink);
+  --color-on-teal: var(--on-teal);
+  --color-teal-soft: var(--teal-soft);
+  --color-coral: var(--coral);
+  --color-coral-ink: var(--coral-ink);
+  --color-coral-soft: var(--coral-soft);
+  --color-lav: var(--lav);
+  --color-lav-ink: var(--lav-ink);
+  --color-lav-soft: var(--lav-soft);
+  --shadow-soft: var(--shadow);
+  --font-sans: var(--font-figtree), system-ui, sans-serif;
+  --font-display: var(--font-fredoka), var(--font-figtree), sans-serif;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--mute);
+  opacity: 0.8;
+}
+
+/* Material Symbols Rounded, loaded in layout.tsx with only the icons the app uses. */
+.icon {
+  font-family: "Material Symbols Rounded";
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  direction: ltr;
+  display: inline-block;
+  font-variation-settings: "FILL" 0;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+.icon-filled {
+  font-variation-settings: "FILL" 1;
 }

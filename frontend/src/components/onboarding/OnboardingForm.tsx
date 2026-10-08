@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
+import Icon from "@/components/ui/Icon";
+import Semi from "@/components/ui/Semi";
 import { getProfile, saveProfile } from "@/lib/api";
 import { emptyDraft, fromProfile, muscleRange, toProfile, todayIso, validateStep, type Draft } from "./draft";
-import { Choice, ChoiceGroup, NumberInput, TextArea, TextInput, Toggle } from "./fields";
+import { Checkbox, Choice, ChoiceGroup, NumberInput, OptionalBadge, TextArea, TextInput } from "./fields";
 import {
   BUDGETS,
   DAYS,
@@ -18,16 +20,17 @@ import {
   SEXES,
   SPORT_SUGGESTIONS,
   SUPPLEMENTS,
-  labelOf,
 } from "./options";
+import { summarize } from "./summary";
+import SummaryCards from "./SummaryCards";
 
 const STEPS = [
-  { emoji: "👋", title: "¡Hola! Conozcámonos", subtitle: "Así tu coach puede hablarte como tú quieras." },
-  { emoji: "🌱", title: "Tu cuerpo hoy", subtitle: "Solo para calcular lo que necesitas. Aquí no hay juicios." },
-  { emoji: "🏃", title: "Tu movimiento", subtitle: "Cuéntanos qué te gusta y cuánto tiempo tienes." },
-  { emoji: "💛", title: "Cuidarte", subtitle: "Para que tu coach se adapte a ti, y no al revés." },
-  { emoji: "🍽️", title: "Tu comida", subtitle: "Ideas que quepan en tu día y en tu bolsillo." },
-  { emoji: "✨", title: "¡Todo listo!", subtitle: "Revisa que todo esté bien. Puedes cambiarlo cuando quieras." },
+  { name: "Hola", title: "¡Hola!", subtitle: "Cuéntanos un poquito de ti. Solo lo que quieras." },
+  { name: "Tu cuerpo", title: "Tu cuerpo", subtitle: "Solo para calcular tu energía. Nadie más lo ve." },
+  { name: "Tu movimiento", title: "Tu movimiento", subtitle: "Armamos un plan que quepa en tu vida." },
+  { name: "Cuidarte", title: "Cuidarte", subtitle: "Ambas secciones son opcionales. Las usamos para cuidarte mejor." },
+  { name: "Comida", title: "Comida", subtitle: "Ideas ricas que se acomoden a tu bolsillo." },
+  { name: "Resumen", title: "Así te conocemos", subtitle: "Toca «Editar» si quieres cambiar algo." },
 ];
 const LAST_STEP = STEPS.length - 1;
 
@@ -37,14 +40,23 @@ function toggle<T>(list: T[], item: T, max = Infinity): T[] {
   return list.length < max ? [...list, item] : list;
 }
 
-export default function OnboardingForm() {
+/** First step with a problem, so saving can jump straight to it. */
+function firstInvalidStep(draft: Draft): { step: number; problem: string } | null {
+  for (let step = 0; step < LAST_STEP; step++) {
+    const problem = validateStep(step, draft);
+    if (problem) return { step, problem };
+  }
+  return null;
+}
+
+export default function OnboardingForm({ initialStep = 0 }: { initialStep?: number }) {
   const router = useRouter();
   const [draft, setDraft] = useState<Draft>(emptyDraft);
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(initialStep);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [showBodyComposition, setShowBodyComposition] = useState(false);
+  const [welcomed, setWelcomed] = useState(false);
   const [customSport, setCustomSport] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -54,7 +66,6 @@ export default function OnboardingForm() {
         if (!profile) return;
         setDraft(fromProfile(profile));
         setEditing(true);
-        setShowBodyComposition(profile.body_composition !== null);
       })
       .catch(() => setError("No pudimos conectar con el servidor. Puedes llenar tus datos y lo intentamos al final."))
       .finally(() => setLoading(false));
@@ -69,25 +80,33 @@ export default function OnboardingForm() {
     setDraft((current) => ({ ...current, [key]: change(current[key]) }));
   }
 
+  function goTo(target: number) {
+    setError(null);
+    setStep(target);
+  }
+
   function goNext() {
     const problem = validateStep(step, draft);
     setError(problem);
     if (!problem) setStep(step + 1);
   }
 
-  function goBack() {
-    setError(null);
-    setStep(step - 1);
-  }
-
-  async function finish() {
+  async function save() {
+    const invalid = firstInvalidStep(draft);
+    if (invalid) {
+      setStep(invalid.step);
+      setError(invalid.problem);
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
       await saveProfile(toProfile(draft));
-      router.push("/");
+      if (editing) router.push("/perfil");
+      else setWelcomed(true);
     } catch {
       setError("No pudimos guardar tu perfil. Revisa tu conexión e inténtalo de nuevo.");
+    } finally {
       setSaving(false);
     }
   }
@@ -102,51 +121,88 @@ export default function OnboardingForm() {
     setCustomSport("");
   }
 
-  if (loading) return <p className="text-sm text-zinc-500">Cargando…</p>;
+  if (loading) {
+    return (
+      <div className="grid flex-1 place-items-center">
+        <Semi size={96} asleep />
+      </div>
+    );
+  }
+
+  if (welcomed) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-4.5 bg-teal-soft px-8 text-center">
+        <Semi size={180} />
+        <h1 className="font-display text-[32px] leading-tight font-semibold">¡Te damos la bienvenida, {draft.nickname.trim()}!</h1>
+        <p className="max-w-72 text-lg leading-normal">Semi ya brotó. Va a crecer contigo cada vez que te cuides, a tu ritmo.</p>
+        <Link href="/" className="mt-2 flex h-14 items-center rounded-[18px] bg-teal px-8 text-lg font-semibold text-on-teal">
+          Ir a Hoy
+        </Link>
+      </div>
+    );
+  }
 
   const current = STEPS[step];
+  const withSemi = step === 0 || step === LAST_STEP;
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between text-xs text-zinc-500">
-          <span>
-            Paso {step + 1} de {STEPS.length}
-          </span>
-          {editing && (
-            <Link href="/" className="font-medium text-teal-700 hover:underline dark:text-teal-400">
-              Cancelar
+    <div className="mx-auto flex w-full max-w-xl flex-1 flex-col">
+      <header className="sticky top-0 z-[5] flex flex-col gap-3 bg-bg px-5 pt-4 pb-3.5">
+        <div className="flex items-center justify-between">
+          {step > 0 ? (
+            <button type="button" onClick={() => goTo(step - 1)} aria-label="Atrás" className="grid size-11 place-items-center rounded-full bg-card">
+              <Icon name="arrow_back" />
+            </button>
+          ) : editing ? (
+            <Link href="/perfil" aria-label="Cerrar" className="grid size-11 place-items-center rounded-full bg-card">
+              <Icon name="close" />
             </Link>
+          ) : (
+            <span className="w-11" />
+          )}
+          <span className="text-[15px] font-semibold text-mute">
+            Paso {step + 1} de {STEPS.length} · {current.name}
+          </span>
+          <span className="w-11" />
+        </div>
+        <div className="grid grid-cols-6 gap-1.5">
+          {STEPS.map((s, i) =>
+            editing ? (
+              <button
+                key={s.name}
+                type="button"
+                onClick={() => goTo(i)}
+                aria-label={`Ir a ${s.name}`}
+                className={`h-2 rounded-full transition-colors ${i <= step ? "bg-teal" : "bg-line2"}`}
+              />
+            ) : (
+              <div key={s.name} className={`h-2 rounded-full transition-colors ${i <= step ? "bg-teal" : "bg-line2"}`} />
+            ),
           )}
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-          <div
-            className="h-full rounded-full bg-teal-600 transition-all"
-            style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
-          />
-        </div>
-      </div>
-
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
-          <span aria-hidden>{current.emoji}</span> {current.title}
-        </h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">{current.subtitle}</p>
       </header>
 
-      <section className="flex flex-col gap-6 rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+      <main className="flex flex-1 flex-col gap-5.5 px-5 pt-2 pb-8">
+        <div className="flex items-center gap-3.5">
+          {withSemi && <Semi size={72} stage={step === 0 ? 1 : 2} />}
+          <div>
+            <h1 className="font-display text-[28px] leading-tight font-semibold">{current.title}</h1>
+            <p className="mt-1 text-base leading-snug text-mute">{current.subtitle}</p>
+          </div>
+        </div>
+
         {step === 0 && (
           <>
             <TextInput
               id="nickname"
-              label="¿Cómo quieres que te diga tu coach?"
-              placeholder="Tu nombre o un apodo"
+              label="Apodo"
+              placeholder="¿Cómo te decimos?"
               maxLength={40}
               value={draft.nickname}
               onChange={(v) => update("nickname", v)}
             />
-            <NumberInput id="age" label="Edad" suffix="años" integer value={draft.age} onChange={(v) => update("age", v)} />
-            <ChoiceGroup legend="Sexo" hint="Solo lo usamos para estimar tus calorías.">
+            <NumberInput id="age" label="Edad" placeholder="Ej. 21" integer value={draft.age} onChange={(v) => update("age", v)} />
+            <ChoiceGroup legend="Sexo" hint="Nos ayuda a ajustar estimaciones. Puedes cambiarlo cuando quieras.">
               {SEXES.map((o) => (
                 <Choice key={o.value} selected={draft.sex === o.value} onClick={() => update("sex", o.value)}>
                   {o.label}
@@ -162,79 +218,85 @@ export default function OnboardingForm() {
               id="height"
               label="Estatura"
               suffix="cm"
-              placeholder="165"
+              placeholder="162"
               value={draft.heightCm}
               onChange={(v) => update("heightCm", v)}
             />
-            {!draft.skipWeight && (
-              <NumberInput
-                id="weight"
-                label="Peso"
-                hint="Ingresa tu peso total. Solo lo usamos para calcular tus necesidades y puedes cambiarlo cuando quieras."
-                suffix="kg"
-                value={draft.weightKg}
-                onChange={(v) => update("weightKg", v)}
-              />
-            )}
-            <Toggle
-              id="skip-weight"
-              label="Prefiero no ponerlo por ahora"
-              hint={
-                draft.skipWeight
-                  ? "¡Está bien! Tu coach te dará guías generales, sin metas basadas en tu peso."
-                  : undefined
-              }
-              checked={draft.skipWeight}
-              onChange={(v) => update("skipWeight", v)}
-            />
-            {!draft.skipWeight && (
-              <div className="flex flex-col gap-4 rounded-xl bg-zinc-50 p-4 dark:bg-zinc-900">
-                <button
-                  type="button"
-                  aria-expanded={showBodyComposition}
-                  onClick={() => setShowBodyComposition(!showBodyComposition)}
-                  className="text-left text-sm font-medium text-teal-700 dark:text-teal-400"
-                >
-                  {showBodyComposition ? "▾" : "▸"} ¿Tienes un análisis como InBody? (opcional)
-                </button>
-                {showBodyComposition && (
-                  <>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      Tu reporte (InBody u otra báscula) suele mostrar tu % de grasa corporal y tu masa muscular, en kg
-                      o en %. Si no lo tienes, no pasa nada.
-                    </p>
-                    <NumberInput
-                      id="body-fat"
-                      label="% de grasa corporal"
-                      suffix="%"
-                      value={draft.bodyFatPercent}
-                      onChange={(v) => update("bodyFatPercent", v)}
-                    />
-                    <NumberInput
-                      id="muscle"
-                      label="Masa muscular"
-                      hint={`Entre ${muscleRange(draft.muscleUnit).join(" y ")} ${draft.muscleUnit === "percent" ? "%" : "kg"}.`}
-                      value={draft.muscleValue}
-                      onChange={(v) => update("muscleValue", v)}
-                    />
-                    <ChoiceGroup legend="Mi reporte la da en">
-                      <Choice selected={draft.muscleUnit === "kg"} onClick={() => update("muscleUnit", "kg")}>
-                        kg
-                      </Choice>
-                      <Choice selected={draft.muscleUnit === "percent"} onClick={() => update("muscleUnit", "percent")}>
-                        %
-                      </Choice>
-                    </ChoiceGroup>
-                  </>
-                )}
+            <div className="flex flex-col gap-2.5">
+              <div className={draft.skipWeight ? "pointer-events-none opacity-45" : ""}>
+                <NumberInput
+                  id="weight"
+                  label="Ingresa tu peso total"
+                  suffix="kg"
+                  placeholder="Ej. 61"
+                  value={draft.skipWeight ? "" : draft.weightKg}
+                  onChange={(v) => update("weightKg", v)}
+                />
               </div>
+              <Checkbox label="Prefiero no ponerlo" checked={draft.skipWeight} onChange={(v) => update("skipWeight", v)} />
+              {draft.skipWeight && (
+                <p className="text-sm leading-snug text-mute">¡Está bien! Semi te dará guías generales, sin metas basadas en tu peso.</p>
+              )}
+            </div>
+            {!draft.skipWeight && (
+              <section className="flex flex-col gap-3.5 rounded-[22px] border-[1.5px] border-dashed border-line2 bg-card p-4.5">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="text-[17px] font-semibold">¿Tienes un análisis como InBody?</h2>
+                  <OptionalBadge />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <NumberInput
+                    id="body-fat"
+                    label="% de grasa"
+                    placeholder="27"
+                    value={draft.bodyFatPercent}
+                    onChange={(v) => update("bodyFatPercent", v)}
+                  />
+                  <NumberInput
+                    id="muscle"
+                    label="Masa muscular"
+                    placeholder="24"
+                    value={draft.muscleValue}
+                    onChange={(v) => update("muscleValue", v)}
+                  />
+                </div>
+                <div className="flex items-center justify-end gap-2.5">
+                  <span className="text-sm text-mute">Masa muscular en</span>
+                  <div className="flex gap-0.75 rounded-xl bg-card2 p-0.75">
+                    {(["kg", "percent"] as const).map((unit) => (
+                      <button
+                        key={unit}
+                        type="button"
+                        aria-pressed={draft.muscleUnit === unit}
+                        onClick={() => update("muscleUnit", unit)}
+                        className={`h-9.5 min-w-13 rounded-[10px] text-[15px] font-semibold ${
+                          draft.muscleUnit === unit ? "bg-teal text-on-teal" : "text-ink"
+                        }`}
+                      >
+                        {unit === "kg" ? "kg" : "%"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-sm leading-snug text-mute">
+                  Tu reporte suele mostrar tu masa muscular en kg o en % (entre {muscleRange(draft.muscleUnit).join(" y ")}
+                  {draft.muscleUnit === "percent" ? " %" : " kg"}). Si no lo tienes, no pasa nada.
+                </p>
+              </section>
             )}
           </>
         )}
 
         {step === 2 && (
           <>
-            <ChoiceGroup legend="¿Qué te gustaría lograr?" hint={`Elige hasta ${MAX_GOALS}.`}>
+            <ChoiceGroup
+              legend="Objetivos"
+              aside={
+                <span className="text-sm font-semibold text-teal-ink">
+                  {draft.goals.length} de {MAX_GOALS}
+                </span>
+              }
+            >
               {GOALS.map((o) => (
                 <Choice
                   key={o.value}
@@ -245,14 +307,14 @@ export default function OnboardingForm() {
                 </Choice>
               ))}
             </ChoiceGroup>
-            <ChoiceGroup legend="Tu experiencia en el gym">
+            <ChoiceGroup legend="Nivel" grid="grid-cols-3">
               {LEVELS.map((o) => (
-                <Choice key={o.value} selected={draft.level === o.value} onClick={() => update("level", o.value)}>
+                <Choice key={o.value} square selected={draft.level === o.value} onClick={() => update("level", o.value)}>
                   {o.label}
                 </Choice>
               ))}
             </ChoiceGroup>
-            <ChoiceGroup legend="¿Practicas algún deporte? (opcional)">
+            <ChoiceGroup legend="Deportes que disfrutas">
               {[...SPORT_SUGGESTIONS, ...draft.sports.filter((s) => !SPORT_SUGGESTIONS.includes(s))].map((sport) => (
                 <Choice
                   key={sport}
@@ -263,7 +325,7 @@ export default function OnboardingForm() {
                 </Choice>
               ))}
             </ChoiceGroup>
-            <div className="flex gap-2">
+            <div className="-mt-2 flex gap-2">
               <input
                 aria-label="Otro deporte"
                 value={customSport}
@@ -276,31 +338,31 @@ export default function OnboardingForm() {
                 }}
                 placeholder="¿Otro? Escríbelo aquí"
                 maxLength={40}
-                className="flex-1 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm outline-none focus:border-teal-600 dark:border-zinc-700 dark:bg-zinc-900"
+                className="h-11.5 min-w-0 flex-1 rounded-full border-[1.5px] border-line2 bg-card px-4 text-[15px] outline-none focus:border-teal"
               />
               <button
                 type="button"
                 onClick={addCustomSport}
-                className="rounded-xl border border-teal-600 px-4 text-sm font-medium text-teal-700 dark:text-teal-400"
+                className="h-11.5 rounded-full border-[1.5px] border-teal px-4 text-[15px] font-semibold text-teal-ink"
               >
                 Agregar
               </button>
             </div>
-            <ChoiceGroup legend="¿Cuántos días a la semana puedes entrenar?">
+            <ChoiceGroup legend="Días por semana" grid="grid-cols-7">
               {DAYS.map((n) => (
-                <Choice key={n} selected={draft.daysPerWeek === n} onClick={() => update("daysPerWeek", n)}>
+                <Choice key={n} square selected={draft.daysPerWeek === n} onClick={() => update("daysPerWeek", n)}>
                   {n}
                 </Choice>
               ))}
             </ChoiceGroup>
-            <ChoiceGroup legend="¿Cuánto tiempo por sesión?">
+            <ChoiceGroup legend="Minutos por sesión" grid="grid-cols-4">
               {MINUTES.map((n) => (
-                <Choice key={n} selected={draft.minutesPerSession === n} onClick={() => update("minutesPerSession", n)}>
-                  {n} min
+                <Choice key={n} square selected={draft.minutesPerSession === n} onClick={() => update("minutesPerSession", n)}>
+                  {n}
                 </Choice>
               ))}
             </ChoiceGroup>
-            <ChoiceGroup legend="¿Con qué equipo cuentas?">
+            <ChoiceGroup legend="Equipo que tienes">
               {EQUIPMENT.map((o) => (
                 <Choice
                   key={o.value}
@@ -316,68 +378,84 @@ export default function OnboardingForm() {
 
         {step === 3 && (
           <>
-            <TextArea
-              id="injuries"
-              label="¿Alguna lesión o molestia que deba cuidar? (opcional)"
-              placeholder="Por ejemplo: me duele la rodilla al correr"
-              maxLength={500}
-              value={draft.injuries}
-              onChange={(v) => update("injuries", v)}
-            />
-            <Toggle
-              id="track-cycle"
-              label="Si menstrúas, ¿quieres que tu coach tome en cuenta tu ciclo?"
-              hint="Tu energía puede cambiar en cada fase, y está bien. Es opcional."
-              checked={draft.trackCycle}
-              onChange={(v) => update("trackCycle", v)}
-            />
-            {draft.trackCycle && (
-              <div className="flex flex-col gap-4 rounded-xl bg-zinc-50 p-4 dark:bg-zinc-900">
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor="last-period" className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                    ¿Cuándo empezó tu último periodo? (opcional)
-                  </label>
-                  <input
-                    id="last-period"
-                    type="date"
-                    max={todayIso()}
-                    value={draft.lastPeriodStart}
-                    onChange={(e) => update("lastPeriodStart", e.target.value)}
-                    className="w-fit rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm outline-none focus:border-teal-600 dark:border-zinc-700 dark:bg-zinc-900"
+            <section className="flex flex-col gap-3 rounded-[22px] bg-card p-4.5">
+              <div className="flex items-center justify-between">
+                <h2 className="text-[17px] font-semibold">Lesiones o molestias</h2>
+                <OptionalBadge />
+              </div>
+              <TextArea
+                id="injuries"
+                label="Cuéntanos qué debemos cuidar"
+                placeholder="Ej. me duele la rodilla al bajar escaleras"
+                maxLength={500}
+                value={draft.injuries}
+                onChange={(v) => update("injuries", v)}
+              />
+            </section>
+            <section className="flex flex-col gap-3 rounded-[22px] bg-lav-soft p-4.5">
+              <div className="flex items-center justify-between">
+                <h2 className="flex items-center gap-2 text-[17px] font-semibold">
+                  <Icon name="water_drop" size={22} className="text-lav-ink" />
+                  Ciclo menstrual
+                </h2>
+                <OptionalBadge tone="lav" />
+              </div>
+              <p className="text-[15px] leading-snug">¿Quieres que ajustemos intensidad y sugerencias según tu ciclo?</p>
+              <div className="flex flex-wrap gap-2">
+                <Choice tone="lav" selected={draft.trackCycle} onClick={() => update("trackCycle", true)}>
+                  Sí, tomarlo en cuenta
+                </Choice>
+                <Choice tone="lav" selected={!draft.trackCycle} onClick={() => update("trackCycle", false)}>
+                  Ahora no
+                </Choice>
+              </div>
+              {draft.trackCycle && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-2">
+                    <label htmlFor="last-period" className="text-base font-semibold">
+                      Último periodo
+                    </label>
+                    <input
+                      id="last-period"
+                      type="date"
+                      max={todayIso()}
+                      value={draft.lastPeriodStart}
+                      onChange={(e) => update("lastPeriodStart", e.target.value)}
+                      className="h-13.5 w-full rounded-2xl border-[1.5px] border-line2 bg-card px-3 text-base text-ink outline-none focus:border-teal"
+                    />
+                  </div>
+                  <NumberInput
+                    id="cycle-days"
+                    label="Dura (días)"
+                    placeholder="28"
+                    integer
+                    value={draft.averageCycleDays}
+                    onChange={(v) => update("averageCycleDays", v)}
                   />
                 </div>
-                <NumberInput
-                  id="cycle-days"
-                  label="¿Cada cuántos días suele llegar? (opcional)"
-                  suffix="días"
-                  placeholder="28"
-                  integer
-                  value={draft.averageCycleDays}
-                  onChange={(v) => update("averageCycleDays", v)}
-                />
-              </div>
-            )}
+              )}
+            </section>
           </>
         )}
 
         {step === 4 && (
           <>
-            <ChoiceGroup legend="Tu presupuesto para comida">
+            <ChoiceGroup legend="Presupuesto para comida" grid="grid-cols-3">
               {BUDGETS.map((o) => (
-                <Choice key={o.value} selected={draft.budget === o.value} onClick={() => update("budget", o.value)}>
+                <Choice key={o.value} square selected={draft.budget === o.value} onClick={() => update("budget", o.value)}>
                   {o.label}
                 </Choice>
               ))}
             </ChoiceGroup>
             <TextInput
               id="restrictions"
-              label="¿Alguna restricción o alergia? (opcional)"
-              placeholder="Por ejemplo: vegetariana, intolerancia a la lactosa"
+              label="Restricciones o alergias"
+              placeholder="Ej. vegetariana, sin lácteos"
               maxLength={300}
               value={draft.dietaryRestrictions}
               onChange={(v) => update("dietaryRestrictions", v)}
             />
-            <ChoiceGroup legend="¿Ya usas alguno de estos? (opcional)">
+            <ChoiceGroup legend="Suplementos que ya usas">
               {SUPPLEMENTS.map((o) => (
                 <Choice
                   key={o.value}
@@ -391,80 +469,41 @@ export default function OnboardingForm() {
           </>
         )}
 
-        {step === LAST_STEP && <Summary draft={draft} />}
-      </section>
+        {step === LAST_STEP && <SummaryCards groups={summarize(toProfile(draft))} onEdit={goTo} />}
+      </main>
 
-      {error && (
-        <p role="alert" className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
-          {error}
-        </p>
-      )}
-
-      <nav className="flex justify-between gap-3">
-        {step > 0 ? (
-          <button
-            type="button"
-            onClick={goBack}
-            className="rounded-full border border-zinc-300 px-5 py-2 text-sm font-medium dark:border-zinc-700"
-          >
-            Atrás
-          </button>
-        ) : (
-          <span />
+      <footer className="sticky bottom-0 flex flex-col gap-2.5 border-t border-line bg-bg px-5 pt-3.5 pb-[max(20px,env(safe-area-inset-bottom))]">
+        {error && (
+          <p role="alert" className="rounded-2xl bg-coral-soft px-4 py-3 text-[15px] text-coral-ink">
+            {error}
+          </p>
         )}
-        {step < LAST_STEP ? (
-          <button
-            type="button"
-            onClick={goNext}
-            className="rounded-full bg-teal-600 px-6 py-2 text-sm font-medium text-white hover:bg-teal-700"
-          >
-            Siguiente
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={finish}
-            disabled={saving}
-            className="rounded-full bg-teal-600 px-6 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50"
-          >
-            {saving ? "Guardando…" : editing ? "Guardar cambios" : "¡Listo, vamos! 🚀"}
-          </button>
-        )}
-      </nav>
+        <div className="flex gap-2.5">
+          {editing && step < LAST_STEP && (
+            <button
+              type="button"
+              onClick={goNext}
+              className="h-14 rounded-[18px] border-[1.5px] border-line2 bg-card px-5.5 text-[17px] font-semibold"
+            >
+              Siguiente
+            </button>
+          )}
+          {editing || step === LAST_STEP ? (
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving}
+              className="h-14 flex-1 rounded-[18px] bg-teal text-lg font-semibold text-on-teal disabled:opacity-50"
+            >
+              {saving ? "Guardando…" : editing ? "Guardar cambios" : "¡Listo!"}
+            </button>
+          ) : (
+            <button type="button" onClick={goNext} className="h-14 flex-1 rounded-[18px] bg-teal text-lg font-semibold text-on-teal">
+              Siguiente
+            </button>
+          )}
+        </div>
+      </footer>
     </div>
-  );
-}
-
-function Summary({ draft }: { draft: Draft }) {
-  const items: [string, ReactNode][] = [
-    ["👤", `${draft.nickname.trim()}, ${draft.age} años`],
-    ["📏", `${draft.heightCm} cm · ${draft.skipWeight || !draft.weightKg ? "peso sin compartir" : `${draft.weightKg} kg`}`],
-    ["🎯", draft.goals.map((g) => labelOf(GOALS, g)).join(", ")],
-    ["🏋️", `${draft.level ? labelOf(LEVELS, draft.level) : ""} · ${draft.daysPerWeek} días × ${draft.minutesPerSession} min`],
-    ["🧰", draft.equipment.map((e) => labelOf(EQUIPMENT, e)).join(", ")],
-  ];
-  if (!draft.skipWeight && (draft.bodyFatPercent || draft.muscleValue)) {
-    const parts = [
-      draft.bodyFatPercent && `${draft.bodyFatPercent}% grasa`,
-      draft.muscleValue && `${draft.muscleValue}${draft.muscleUnit === "percent" ? "%" : " kg"} músculo`,
-    ];
-    items.push(["🧬", parts.filter(Boolean).join(" · ")]);
-  }
-  if (draft.sports.length) items.push(["⚽", draft.sports.join(", ")]);
-  if (draft.injuries.trim()) items.push(["🩹", draft.injuries.trim()]);
-  if (draft.trackCycle) items.push(["🌙", "Tu coach tomará en cuenta tu ciclo"]);
-  items.push(["💸", `Presupuesto: ${labelOf(BUDGETS, draft.budget)}`]);
-  if (draft.dietaryRestrictions.trim()) items.push(["🥗", draft.dietaryRestrictions.trim()]);
-  if (draft.supplements.length) items.push(["🥤", draft.supplements.map((s) => labelOf(SUPPLEMENTS, s)).join(", ")]);
-
-  return (
-    <ul className="flex flex-col gap-3 text-sm text-zinc-800 dark:text-zinc-200">
-      {items.map(([icon, text]) => (
-        <li key={icon} className="flex gap-3">
-          <span aria-hidden>{icon}</span>
-          <span>{text}</span>
-        </li>
-      ))}
-    </ul>
   );
 }

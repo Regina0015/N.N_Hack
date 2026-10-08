@@ -2,15 +2,18 @@ import type { Metadata } from "next";
 import OnboardingForm from "@/components/onboarding/OnboardingForm";
 
 export const metadata: Metadata = {
-  title: "Tu perfil · AI Wellness Coach",
+  title: "Tu perfil · Nido",
 };
 
-export default function OnboardingPage() {
+/** `?paso=3` opens step 3 directly (used by "Editar" in Perfil). */
+export default async function OnboardingPage({ searchParams }: PageProps<"/onboarding">) {
+  const { paso } = await searchParams;
+  const step = Number(paso) - 1;
+  const initialStep = Number.isInteger(step) && step >= 0 && step <= 5 ? step : 0;
+
   return (
-    <div className="flex flex-1 justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex w-full max-w-2xl flex-col px-4 py-10 sm:px-8">
-        <OnboardingForm />
-      </main>
+    <div className="flex min-h-dvh flex-1 flex-col bg-bg text-ink">
+      <OnboardingForm key={initialStep} initialStep={initialStep} />
     </div>
   );
 }
