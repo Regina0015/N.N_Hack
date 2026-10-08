@@ -17,7 +17,7 @@ import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import delete  # noqa: E402
 
-from app.db import Profile, SessionLocal, engine  # noqa: E402
+from app.db import Message, Profile, SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
 
 
@@ -33,6 +33,7 @@ def client():
     with TestClient(app) as test_client:
         with SessionLocal() as session:
             session.execute(delete(Profile))
+            session.execute(delete(Message))
             session.commit()
         yield test_client
 

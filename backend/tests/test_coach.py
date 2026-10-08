@@ -1,7 +1,7 @@
 from app.nebius import describe_profile
 from app.schemas import ProfileData
 
-HELLO = {"messages": [{"role": "user", "content": "Hola"}]}
+HELLO = {"message": "Hola"}
 
 
 def test_chat_without_profile_runs_in_mock_mode(client):

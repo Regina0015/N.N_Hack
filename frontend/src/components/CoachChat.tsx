@@ -3,7 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
-import { getHealth, getProfile, sendChat, type ChatMessage, type HealthResponse } from "@/lib/api";
+import {
+  clearChatHistory,
+  getChatHistory,
+  getHealth,
+  getProfile,
+  sendChat,
+  type ChatMessage,
+  type HealthResponse,
+} from "@/lib/api";
 
 type Status = { kind: "loading" } | { kind: "ok"; health: HealthResponse } | { kind: "down" };
 
@@ -26,6 +34,9 @@ export default function CoachChat() {
         else router.replace("/onboarding");
       })
       .catch(() => {}); // backend down: the status badge already says so
+    getChatHistory()
+      .then((history) => setMessages(history.map(({ role, content }) => ({ role, content }))))
+      .catch(() => {});
   }, [router]);
 
   async function onSubmit(event: FormEvent) {
@@ -33,18 +44,33 @@ export default function CoachChat() {
     const text = input.trim();
     if (!text || sending) return;
 
-    const next: ChatMessage[] = [...messages, { role: "user", content: text }];
+    const before = messages;
+    const next: ChatMessage[] = [...before, { role: "user", content: text }];
     setMessages(next);
     setInput("");
     setSending(true);
     setError(null);
     try {
-      const { reply } = await sendChat(next);
+      const { reply } = await sendChat(text);
       setMessages([...next, { role: "assistant", content: reply }]);
     } catch {
+      // The backend only saves a turn after a reply, so put the text back for a retry.
+      setMessages(before);
+      setInput(text);
       setError("No se pudo contactar al coach. ¿Está corriendo el backend?");
     } finally {
       setSending(false);
+    }
+  }
+
+  async function onClear() {
+    if (!window.confirm("¿Empezar una conversación nueva? El coach olvidará este chat.")) return;
+    try {
+      await clearChatHistory();
+      setMessages([]);
+      setError(null);
+    } catch {
+      setError("No se pudo borrar la conversación.");
     }
   }
 
@@ -52,11 +78,23 @@ export default function CoachChat() {
     <section className="flex w-full flex-col gap-4">
       <div className="flex items-center justify-between gap-4">
         <StatusBadge status={status} />
-        {nickname && (
-          <Link href="/onboarding" className="text-xs font-medium text-teal-700 hover:underline dark:text-teal-400">
-            Editar perfil
-          </Link>
-        )}
+        <div className="flex items-center gap-4">
+          {messages.length > 0 && (
+            <button
+              type="button"
+              onClick={onClear}
+              disabled={sending}
+              className="text-xs font-medium text-zinc-500 hover:underline disabled:opacity-50"
+            >
+              Nueva conversación
+            </button>
+          )}
+          {nickname && (
+            <Link href="/onboarding" className="text-xs font-medium text-teal-700 hover:underline dark:text-teal-400">
+              Editar perfil
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="flex min-h-64 flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">

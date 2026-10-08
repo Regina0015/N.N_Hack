@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, String, create_engine, inspect
+from sqlalchemy import JSON, BigInteger, DateTime, Index, Integer, String, Text, create_engine, inspect
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
@@ -28,6 +28,20 @@ class Profile(Base):
     data: Mapped[dict[str, Any]] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+
+
+class Message(Base):
+    """One chat turn; the coach's memory is the user's most recent turns, read back in id order."""
+
+    __tablename__ = "chat_messages"
+    __table_args__ = (Index("chat_messages_user_id_id_idx", "user_id", "id"),)
+
+    # BIGINT identity on Postgres; SQLite only autoincrements INTEGER primary keys.
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer(), "sqlite"), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64))
+    role: Mapped[str] = mapped_column(String(16))
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
 def _make_engine():

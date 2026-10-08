@@ -6,6 +6,8 @@ export type HealthResponse = { status: string; mock_mode: boolean };
 
 export type ChatResponse = { reply: string; mock: boolean };
 
+export type StoredMessage = ChatMessage & { created_at: string };
+
 // Mirrors backend/app/schemas.py
 export type Sex = "female" | "male" | "unspecified";
 export type Goal = "build_muscle" | "lose_fat" | "maintain" | "more_energy" | "sport_performance";
@@ -46,14 +48,26 @@ export async function getHealth(): Promise<HealthResponse> {
   return res.json();
 }
 
-export async function sendChat(messages: ChatMessage[]): Promise<ChatResponse> {
+/** Sends only the new message; the backend stores the conversation and adds earlier turns as context. */
+export async function sendChat(message: string): Promise<ChatResponse> {
   const res = await fetch(`${API_URL}/api/coach/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify({ message }),
   });
   if (!res.ok) throw new Error(`Chat failed: ${res.status}`);
   return res.json();
+}
+
+export async function getChatHistory(): Promise<StoredMessage[]> {
+  const res = await fetch(`${API_URL}/api/coach/history`);
+  if (!res.ok) throw new Error(`History fetch failed: ${res.status}`);
+  return (await res.json()).messages;
+}
+
+export async function clearChatHistory(): Promise<void> {
+  const res = await fetch(`${API_URL}/api/coach/history`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`History clear failed: ${res.status}`);
 }
 
 /** Returns null when the user has not completed onboarding yet. */
