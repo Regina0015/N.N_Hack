@@ -1,0 +1,25 @@
+# Render Blueprint for the FastAPI backend (https://render.com/docs/blueprint-spec).
+# Secrets use `sync: false`: Render asks for them when the Blueprint is created; they never live in git.
+services:
+  - type: web
+    name: nido-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: uv sync --frozen --no-dev
+    startCommand: uv run --frozen --no-dev uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: NEBIUS_API_KEY
+        sync: false
+      - key: COACH_MODEL
+        value: nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B
+      # Free instances have no persistent disk: use the Supabase Session pooler URI.
+      - key: DATABASE_URL
+        sync: false
+      # The Vercel URL of the frontend, e.g. https://nido.vercel.app
+      - key: CORS_ORIGINS
+        sync: false
