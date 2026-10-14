@@ -1,4 +1,4 @@
-import type { Budget, Equipment, Goal, Level, Sex, Supplement } from "@/lib/api";
+import type { Budget, CycleRegularity, Equipment, Goal, HormonalContraception, Level, Sex, Supplement } from "@/lib/api";
 
 export type Option<T> = { value: T; label: string };
 
@@ -39,6 +39,18 @@ export const SUPPLEMENTS: Option<Supplement>[] = [
   { value: "protein", label: "Proteína" },
   { value: "creatine", label: "Creatina" },
   { value: "pre_workout", label: "Preentreno" },
+];
+
+export const REGULARITY: Option<CycleRegularity>[] = [
+  { value: "regular", label: "Casi siempre igual" },
+  { value: "irregular", label: "Cambia mucho" },
+  { value: "unsure", label: "No sé" },
+];
+
+export const CONTRACEPTION: Option<HormonalContraception>[] = [
+  { value: "no", label: "No" },
+  { value: "yes", label: "Sí" },
+  { value: "prefer_not", label: "Prefiero no decir" },
 ];
 
 export const SPORT_SUGGESTIONS = [

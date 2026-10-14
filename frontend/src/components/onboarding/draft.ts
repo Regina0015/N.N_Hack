@@ -1,4 +1,15 @@
-import type { Budget, Equipment, Goal, Level, MuscleUnit, Profile, Sex, Supplement } from "@/lib/api";
+import type {
+  Budget,
+  CycleRegularity,
+  Equipment,
+  Goal,
+  HormonalContraception,
+  Level,
+  MuscleUnit,
+  Profile,
+  Sex,
+  Supplement,
+} from "@/lib/api";
 
 /** Form state: numbers stay as strings so inputs can be empty or use a decimal comma. */
 export type Draft = {
@@ -21,6 +32,9 @@ export type Draft = {
   trackCycle: boolean;
   lastPeriodStart: string;
   averageCycleDays: string;
+  periodDays: string;
+  regularity: CycleRegularity | null;
+  contraception: HormonalContraception | null;
   budget: Budget;
   dietaryRestrictions: string;
   supplements: Supplement[];
@@ -46,6 +60,9 @@ export const emptyDraft: Draft = {
   trackCycle: false,
   lastPeriodStart: "",
   averageCycleDays: "",
+  periodDays: "",
+  regularity: null,
+  contraception: null,
   budget: "moderate",
   dietaryRestrictions: "",
   supplements: [],
@@ -90,6 +107,9 @@ export function fromProfile(p: Profile): Draft {
     trackCycle: p.track_cycle,
     lastPeriodStart: p.cycle?.last_period_start ?? "",
     averageCycleDays: asText(p.cycle?.average_cycle_days),
+    periodDays: asText(p.cycle?.period_days),
+    regularity: p.cycle?.regularity ?? null,
+    contraception: p.cycle?.hormonal_contraception ?? null,
     budget: p.budget,
     dietaryRestrictions: p.dietary_restrictions,
     supplements: p.supplements,
@@ -127,9 +147,16 @@ export function validateStep(step: number, d: Draft): string | null {
     case 3: {
       if (!d.trackCycle) return null;
       if (d.lastPeriodStart && d.lastPeriodStart > todayIso()) return "La fecha de tu último periodo no puede ser en el futuro.";
-      const days = parseNumber(d.averageCycleDays);
-      if (days !== null && (!inRange(days, 15, 60) || !Number.isInteger(days))) {
-        return "La duración de tu ciclo debe estar entre 15 y 60 días.";
+      const bleeding = parseNumber(d.periodDays);
+      if (bleeding !== null && (!inRange(bleeding, 1, 15) || !Number.isInteger(bleeding))) {
+        return "¿Cuántos días te dura el sangrado? Escribe un número entre 1 y 15 (lo común es de 2 a 7).";
+      }
+      const cycle = parseNumber(d.averageCycleDays);
+      if (cycle !== null && (!inRange(cycle, 15, 90) || !Number.isInteger(cycle))) {
+        return "Tu ciclo se cuenta del primer día de un periodo al primer día del siguiente (lo común es de 21 a 35 días). Escribe un número entre 15 y 90.";
+      }
+      if (bleeding !== null && cycle !== null && bleeding >= cycle) {
+        return "Los días de sangrado son solo una parte del ciclo: deben ser menos que los días entre un periodo y otro.";
       }
       return null;
     }
@@ -162,7 +189,13 @@ export function toProfile(d: Draft): Profile {
     injuries: d.injuries.trim(),
     track_cycle: d.trackCycle,
     cycle: d.trackCycle
-      ? { last_period_start: d.lastPeriodStart || null, average_cycle_days: parseNumber(d.averageCycleDays) }
+      ? {
+          last_period_start: d.lastPeriodStart || null,
+          average_cycle_days: parseNumber(d.averageCycleDays),
+          period_days: parseNumber(d.periodDays),
+          regularity: d.regularity,
+          hormonal_contraception: d.contraception,
+        }
       : null,
     budget: d.budget,
     dietary_restrictions: d.dietaryRestrictions.trim(),

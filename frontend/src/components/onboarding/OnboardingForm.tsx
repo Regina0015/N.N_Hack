@@ -10,6 +10,7 @@ import { emptyDraft, fromProfile, muscleRange, toProfile, todayIso, validateStep
 import { Checkbox, Choice, ChoiceGroup, NumberInput, OptionalBadge, TextArea, TextInput } from "./fields";
 import {
   BUDGETS,
+  CONTRACEPTION,
   DAYS,
   EQUIPMENT,
   GOALS,
@@ -17,6 +18,7 @@ import {
   MAX_GOALS,
   MAX_SPORTS,
   MINUTES,
+  REGULARITY,
   SEXES,
   SPORT_SUGGESTIONS,
   SUPPLEMENTS,
@@ -410,10 +412,13 @@ export default function OnboardingForm({ initialStep = 0 }: { initialStep?: numb
                 </Choice>
               </div>
               {draft.trackCycle && (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-4">
+                  <p className="text-sm leading-snug text-mute">
+                    Todo es opcional. Si no sabes algo, déjalo vacío: Semi te preguntará cómo te sientes.
+                  </p>
                   <div className="flex flex-col gap-2">
                     <label htmlFor="last-period" className="text-base font-semibold">
-                      Último periodo
+                      ¿Qué día empezó tu último periodo?
                     </label>
                     <input
                       id="last-period"
@@ -423,15 +428,55 @@ export default function OnboardingForm({ initialStep = 0 }: { initialStep?: numb
                       onChange={(e) => update("lastPeriodStart", e.target.value)}
                       className="h-13.5 w-full rounded-2xl border-[1.5px] border-line2 bg-card px-3 text-base text-ink outline-none focus:border-teal"
                     />
+                    <p className="text-sm leading-snug text-mute">El primer día de sangrado.</p>
                   </div>
                   <NumberInput
+                    id="period-days"
+                    label="¿Cuántos días te dura el sangrado?"
+                    hint="Lo común es de 2 a 7 días."
+                    placeholder="5"
+                    suffix="días"
+                    integer
+                    value={draft.periodDays}
+                    onChange={(v) => update("periodDays", v)}
+                  />
+                  <NumberInput
                     id="cycle-days"
-                    label="Dura (días)"
+                    label="¿Cada cuántos días te baja?"
+                    hint="Es tu ciclo completo: del primer día de un periodo al primer día del siguiente. Lo común es de 21 a 35 días."
                     placeholder="28"
+                    suffix="días"
                     integer
                     value={draft.averageCycleDays}
                     onChange={(v) => update("averageCycleDays", v)}
                   />
+                  <ChoiceGroup legend="¿Tu ciclo es regular?">
+                    {REGULARITY.map((o) => (
+                      <Choice
+                        key={o.value}
+                        tone="lav"
+                        selected={draft.regularity === o.value}
+                        onClick={() => update("regularity", draft.regularity === o.value ? null : o.value)}
+                      >
+                        {o.label}
+                      </Choice>
+                    ))}
+                  </ChoiceGroup>
+                  <ChoiceGroup
+                    legend="¿Usas anticonceptivo hormonal?"
+                    hint="Pastilla, DIU hormonal, implante, inyección o parche. Con ellos no hay fases naturales, así que Semi se guía por cómo te sientas."
+                  >
+                    {CONTRACEPTION.map((o) => (
+                      <Choice
+                        key={o.value}
+                        tone="lav"
+                        selected={draft.contraception === o.value}
+                        onClick={() => update("contraception", draft.contraception === o.value ? null : o.value)}
+                      >
+                        {o.label}
+                      </Choice>
+                    ))}
+                  </ChoiceGroup>
                 </div>
               )}
             </section>

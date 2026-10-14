@@ -32,8 +32,21 @@ class BodyComposition(BaseModel):
 
 
 class CycleInfo(BaseModel):
+    # First day of bleeding of the most recent period.
     last_period_start: date | None = None
-    average_cycle_days: int | None = Field(default=None, ge=15, le=60)
+    # Whole cycle: first day of one period to the first day of the next (typically 21-35; up to 45 in teens).
+    average_cycle_days: int | None = Field(default=None, ge=15, le=90)
+    # Days of bleeding (typically 2-7).
+    period_days: int | None = Field(default=None, ge=1, le=15)
+    regularity: Literal["regular", "irregular", "unsure"] | None = None
+    # Hormonal pill, IUD, implant, shot or patch: no natural phases to estimate.
+    hormonal_contraception: Literal["no", "yes", "prefer_not"] | None = None
+
+    @model_validator(mode="after")
+    def period_fits_in_cycle(self) -> Self:
+        if self.period_days and self.average_cycle_days and self.period_days >= self.average_cycle_days:
+            raise ValueError("period_days must be shorter than average_cycle_days")
+        return self
 
     @field_validator("last_period_start")
     @classmethod

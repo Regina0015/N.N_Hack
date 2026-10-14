@@ -6,6 +6,16 @@ export type SummaryGroup = { step: number; title: string; icon: IconName; rows: 
 
 const list = (items: string[], empty = "Ninguno") => (items.length ? items.join(", ") : empty);
 
+function describeCycle(c: Profile["cycle"]): string {
+  const parts = [
+    c?.average_cycle_days != null && `Cada ${c.average_cycle_days} días`,
+    c?.period_days != null && `sangrado ${c.period_days} días`,
+    c?.regularity === "irregular" && "irregular",
+    c?.hormonal_contraception === "yes" && "anticonceptivo hormonal",
+  ].filter(Boolean);
+  return parts.length ? parts.join(" · ") : "Tomarlo en cuenta";
+}
+
 /** Profile grouped by onboarding step, shown in Perfil and in the last onboarding step. */
 export function summarize(p: Profile): SummaryGroup[] {
   const bc = p.body_composition;
@@ -53,7 +63,7 @@ export function summarize(p: Profile): SummaryGroup[] {
       icon: "favorite",
       rows: [
         { k: "Lesiones", v: p.injuries || "Ninguna" },
-        { k: "Ciclo", v: p.track_cycle ? "Tomarlo en cuenta" : "No" },
+        { k: "Ciclo", v: p.track_cycle ? describeCycle(p.cycle) : "No" },
       ],
     },
     {

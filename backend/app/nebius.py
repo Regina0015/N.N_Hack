@@ -4,6 +4,7 @@ from datetime import date
 from openai import AsyncOpenAI
 
 from app.config import settings
+from app.cycle import CYCLE_GUIDANCE, describe_cycle
 from app.schemas import ProfileData
 
 COACH_SYSTEM_PROMPT = """You are a warm, encouraging personal wellness coach.
@@ -36,7 +37,7 @@ _BUDGET = {"tight": "tight (favor cheap meals)", "moderate": "moderate", "flexib
 _SUPPLEMENTS = {"protein": "protein powder", "creatine": "creatine", "pre_workout": "pre-workout"}
 
 
-def describe_profile(p: ProfileData) -> str:
+def describe_profile(p: ProfileData, today: date | None = None) -> str:
     """Compact profile summary appended to the system prompt."""
     lines = [f"Name to use: {p.nickname}", f"Age: {p.age}"]
     if p.sex != "unspecified":
@@ -60,12 +61,7 @@ def describe_profile(p: ProfileData) -> str:
     if p.injuries:
         lines.append(f"Injuries or discomfort: {p.injuries}")
     if p.track_cycle:
-        cycle = "Wants cycle-aware training"
-        if p.cycle and p.cycle.last_period_start:
-            cycle += f"; last period started {p.cycle.last_period_start.isoformat()}"
-        if p.cycle and p.cycle.average_cycle_days:
-            cycle += f"; average cycle {p.cycle.average_cycle_days} days"
-        lines.append(cycle)
+        lines.append("Cycle: " + describe_cycle(p.cycle, p.age, today or date.today()))
     lines.append(f"Food budget: {_BUDGET[p.budget]}")
     if p.dietary_restrictions:
         lines.append(f"Dietary restrictions: {p.dietary_restrictions}")
@@ -95,6 +91,8 @@ async def coach_reply(messages: list[dict[str, str]], profile: ProfileData | Non
     system = f"{COACH_SYSTEM_PROMPT}\n\nToday's date: {date.today().isoformat()}"
     if profile:
         system += "\n\n" + describe_profile(profile)
+        if profile.track_cycle:
+            system += "\n\n" + CYCLE_GUIDANCE
 
     response = await get_client().chat.completions.create(
         model=settings.coach_model,

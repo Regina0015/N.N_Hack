@@ -16,6 +16,15 @@ export type Equipment = "full_gym" | "dumbbells" | "bands" | "bodyweight";
 export type Budget = "tight" | "moderate" | "flexible";
 export type Supplement = "protein" | "creatine" | "pre_workout";
 export type MuscleUnit = "kg" | "percent";
+export type CycleRegularity = "regular" | "irregular" | "unsure";
+export type HormonalContraception = "no" | "yes" | "prefer_not";
+export type CycleInfo = {
+  last_period_start: string | null;
+  average_cycle_days: number | null;
+  period_days: number | null;
+  regularity: CycleRegularity | null;
+  hormonal_contraception: HormonalContraception | null;
+};
 
 export type Profile = {
   nickname: string;
@@ -36,7 +45,7 @@ export type Profile = {
   equipment: Equipment[];
   injuries: string;
   track_cycle: boolean;
-  cycle: { last_period_start: string | null; average_cycle_days: number | null } | null;
+  cycle: CycleInfo | null;
   budget: Budget;
   dietary_restrictions: string;
   supplements: Supplement[];
